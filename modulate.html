@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" type="text/css" href="modulate.css">
+<script src="modulate-ui.js"></script>
+<script src="modulate.js"></script>
+
+<script src="afsk-encoder.js"></script>
+</head><body><div id=header class=fixedSimple title="modem.js">
+
+      Some test text
+      
+<div id=modeContainer class=fixed>
+  <a href="#" id=send class=button>  Send  </a>
+</div>
+<div id=modem class=fixedSimple>
+
+<span id=txLed class=led>▄▄▄</span>  
+<span id=powerLed class=led>▄▄▄</span>
+
+</div>
+<div id=inputFileStuff hidden=true>
+  <audio id=inputAudio preload=auto controls></audio>
+</div>
+<div id=actionContainer class=fixed>
+  <a href="#" id=save class=button>  Save WAV  </a>
+</div>
+
+<div>
+<a href="#" id=zeroButton class=button>Zeros</a>
+</div>
+<div>
+<a href="#" id=oneButton class=button>Ones</a>
+</div>
+
+<script>
+ui.init();
+</script>
+</body>
+</html>

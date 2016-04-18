@@ -1,0 +1,147 @@
+@font-face {
+  font-family: "FixedSys";
+  src: url("Fixedsys500c.woff");
+}
+
+body {
+  margin-top: 0;
+  color: #bbb;
+  background-color: #000084;
+}
+
+#optionsContainer[hidden] {
+  display: none;
+}
+#optionsContainer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(80,80,80, 0.9);
+  display: flex;
+  justify-content: space-around;
+}
+#optionsDiv {
+  color: black;
+  background-color: white;
+  height: 30ch;
+  padding: 1ch;
+  box-shadow: 10px 10px 0px black;
+  margin-top: 4ch;
+}
+#inputURL {
+  color: white;
+  background-color: black;
+  font-family: FixedSys, monospace;
+  border: 2px solid grey;
+  padding: 4px;
+  width: 70ch;
+}
+
+.fixed {
+  white-space: pre;
+  font-family: FixedSys, monospace;
+}
+/* FixedSys only has basic ASCII, mixing with fallback causes
+ * alignment issues due to differing character widths.
+ *
+ * XXX Ugh. Just "monospace" works fine in Firefox, but has alignment
+ * issues in Chrome (both OS X). Devtools for both show a mix of
+ * actual fonts being used, tricky to select an explicit set that
+ * aligns properly. Note that some combinations are close to
+ * working, but are actually a few pixels off (causing vertical bars
+ * to misalign slightly across rows).
+ * "Courier New, Menlo" seems to work for Chrome+Firefox on OS X, but
+ * makes both worse on Android. >:(
+ */
+.fixedSimple {
+  white-space: pre;
+  font-family: monospace;
+}
+
+.checkbox, .radio {
+  display: inline-block;
+  color: inherit;
+  text-decoration: none;
+}
+.checkbox:before { content: "[ ] " }
+.checkbox[checked]:before { content: "[X] " }
+.radio:before { content: "( ) " }
+.radio[checked]:before { content: "(*) " }
+
+.button {
+  padding: 1ch;
+  color: black;
+  background-color: #bbb;
+  box-shadow: 10px 10px 0px black;
+  text-decoration: none;
+
+  /* Avoid selecting text when clicking rapidly. */
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+}
+.button[selected] {
+  color: white;
+  background-color: #00aa00;
+}
+.button:before { content: "  "; }
+.button:after  { content: "  "; }
+.button[selected]:before { content: "> "; }
+.button[selected]:after  { content: " <"; }
+
+#power:not([selected]) {
+  background-color: #c00;
+}
+
+#header {
+  padding-left: 120px; /* XXX center me */
+  color: white;
+}
+#subHeader {
+  padding-left: 90px; /* XXX center me */
+  color: white;
+}
+
+#info {
+  color: #fefe54;
+}
+
+#footer {
+  padding: 5px;
+  background-color: purple;
+  color: white;
+}
+#footer > a:visited, #footer > a:link {
+  text-decoration: underline;
+  color: white;
+}
+#modeContainer, #actionContainer {
+  width: 300px; /* XXX center me */
+  display: flex;
+  justify-content: space-around;
+}
+
+
+/* ********** */
+
+.led {
+  color: black;
+}
+.led[lit] {
+  color: red;
+}
+
+/* ********** */
+
+#outputContainer {
+  max-height: 10em;
+  overflow: scroll;
+}
+
+#inputContainer > textarea {
+  color: white;
+  background-color: black;
+  font-family: FixedSys, monospace;
+}
