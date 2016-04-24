@@ -118,7 +118,7 @@ body {
     color: white;
 }
 #modeContainer, #actionContainer {
-    width: 300px; /* XXX center me */
+    width: 600px; /* XXX center me */
     display: flex;
     justify-content: space-around;
 }
