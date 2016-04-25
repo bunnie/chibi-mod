@@ -1,162 +1,74 @@
-var baudrate; // initialized to 1200 by UI
-var encoder, decoder;
-var audioCtx = new AudioContext();
-var speakerSampleRate = audioCtx.sampleRate;
-var inputSampleRate;
-var afskNode, audioSource, micStream;
-var inputURL; // microphone, if not set
-var saveState;
-console.log("speakerSampleRate is " + speakerSampleRate);
+// stopped at: getting audio contexts to play over and over again in the browser
+// once that's done, use the file fetch routine to decompose a file into multiple blocks
+// according to the updating protocol
+// 1) compute guid, fullhash, create control packet
+// 2) send successive data packets
+// 3) loop 3-4 times
+// 4) test integration with microcontroller demod code
 
-function stahhhhp() {
-    console.log("stopping");
-    if (afskNode) {
-	afskNode.removeEventListener("audioprocess", onAudioProcess);
-	afskNode.disconnect();
-    }
-    if (micStream)
-	micStream.stop();
-    if (audioSource)
-	audioSource.disconnect();
+// creates a modulator capable of making audio clips up to dataLength long
+function modulator(dataLength) {
+    this.audioCtx = new AudioContext();
+    this.samplerate = this.audioCtx.sampleRate;
     
-    afskNode = micStream = audioSource = null;
+    console.log("speakerSampleRate is " + this.samplerate);
+    
+    this.encoder = new FskEncoder(this.samplerate);
+
+    var numBits = dataLength * 8;
+    this.numSamples = Math.ceil(numBits * this.encoder.samplesPerBit());
+	
+    this.outputAudioBuffer = this.audioCtx.createBuffer(1, this.numSamples, this.samplerate);
+    
+}
+modulator.prototype = {
+    audioCtx: null,  // AudioContext object
+    numSamples: 0,
+    samplerate: 48000,
+    encoder: null,  // FskEncoder object
+    outputAudioBuffer: null,  // AudioBuffer object
+    uiCallback: null,  // UI object for callback
+
+    modulate: function(data) {
+	var timeStart = performance.now();
+
+	var outputFloatArray = this.outputAudioBuffer.getChannelData(0);
+	outputFloatArray = this.encoder.modulate(data, outputFloatArray);
+	this.outputAudioBuffer.copyToChannel(outputFloatArray, 0);
+	
+	var timeEnd = performance.now();
+	var timeElapsed = timeEnd - timeStart;
+	console.log("Rendered " + data.length + " data bytes in " +
+		    timeElapsed.toFixed(2) + "ms");
+    },
+    drawWaveform: function() {
+	var b = this.outputAudioBuffer.getChannelData(0);
+	drawWaveformToCanvas(b, 0);
+    },
+    playBuffer: function(callBack) {
+	if( callBack )
+	    uiCallback = callBack;
+	console.log("-- playAudioBuffer --");
+	var bufferNode = this.audioCtx.createBufferSource();
+	bufferNode.buffer = this.outputAudioBuffer;
+	bufferNode.connect(this.audioCtx.destination); // Connect to speakers
+	bufferNode.addEventListener("ended", audioEnded);
+	playTimeStart = performance.now();
+	bufferNode.start(0); // play immediately
+    },
+    saveWAV: function() {
+	exportMonoWAV(this.outputAudioBuffer.getChannelData(0), this.outputAudioBuffer.length);
+    },
 }
 
-function runModem(text) {
-    var dataBuffer;
-    
-    var mode = ui.mode;
-    
-    this.baudrate = "1200";
-    //    dataBuffer = modulateData(text, speakerSampleRate, null);
-    dataBuffer = modulateData(text, speakerSampleRate);
-    
-    var b = dataBuffer.getChannelData(0);
-    drawWaveformToCanvas(b, 0);
-    
-    playAudioBuffer(dataBuffer);
-    
-    if( this.saveState ) {
-	exportMonoWAV(dataBuffer.getChannelData(0), dataBuffer.length);
-    }
-}
+var playTimeStart;
 
-
-function onAudioProcess(event) {
-    var buffer = event.inputBuffer;
-    var samplesIn = buffer.getChannelData(0);
-    console.log("-- audioprocess data (" + samplesIn.length + " samples) --");
-    
-    // Can't really get at input file/microphone sample rate until first data.
-    if (!decoder) {
-	inputSampleRate = buffer.sampleRate;
-	console.log("input sample rate is: " + inputSampleRate);
-	decoder = new AfskDecoder(inputSampleRate, baudrate, onDecoderStatus);
-    }
-    
-    decoder.demodulate(samplesIn);
-    
-    // Copy input to output (needed to hear input files)
-    if (inputURL) {
-	var samplesOut = event.outputBuffer.getChannelData(0);
-	samplesOut.set(samplesIn);
-    }
-}
-
-// XXX this seems to be completely broken in Firefox. The audioprocess events
-// start firing, but there is no data (silence). Tried waiting for the element
-// to fire loadeddata, no joy. Verified that the element can play an example
-// input, it just never starts playing with this code.
-// XXX Works great in Chrome!
-function startAudioFile(inputURL) {
-    var inputAudio = document.getElementById("inputAudio");
-    
-    inputAudio.addEventListener("error", onInputAudioError);
-    inputAudio.addEventListener("ended", function() {
-	setTimeout(function() { ui.onPowerButton();}, 500 );
-    });
-    inputAudio.pause();
-    //inputAudio.currentTime = 0;
-    inputAudio.setAttribute("src", inputURL);
-    
-    var audioSource = audioCtx.createMediaElementSource(inputAudio);
-    
-    afskNode = audioCtx.createScriptProcessor(8192); // buffersize, input channels, output channels;
-    // XXX is there a gecko bug here if numSamples not evenly divisible by buffersize?
-    audioSource.connect(afskNode);
-    afskNode.addEventListener("audioprocess", onAudioProcess);
-    // XXX Chrome seems to require connecting to a destination, or else
-    // audiodata events don't fire (the script processor needs to be created
-    // with output channels too)
-    afskNode.connect(audioCtx.destination);
-    
-    inputAudio.play();
-    console.log("startAudioFile playing " + inputURL);
-}
-
-function onInputAudioError(e) {
-    console.log("inputAudio error: " + e);
-}
-
-function modulateData(data, samplerate) {
-    var timeStart = performance.now();
-    
-    encoder = new FskEncoder(data, samplerate);
-
-    var numSamples = encoder.numSamplesRequired;
-    
-    var dataBuffer = audioCtx.createBuffer(1, numSamples, samplerate);
-    var samples = dataBuffer.getChannelData(0);
-    
-    encoder.modulate(samples, samplerate);
-    
-    var timeEnd = performance.now();
-    var timeElapsed = timeEnd - timeStart;
-    console.log("Rendered " + data.length + " data bytes in " +
-		timeElapsed.toFixed(2) + "ms");
-    return dataBuffer;
-}
-
-// Due to webaudio constraints, we're encoding the entire output buffer in
-// one call. But I'm limiting that assumption to this function, so that in
-// the future it can modulate on-the-fly (ie, with small buffer that may
-// not begin/end exactly where a bit's sample's do!)
-function modulateAfskData(data, sampleRate, completeCallback) {
-    var timeStart = performance.now();
-    
-    var chunkSize = 4096; //number of samples to generate at a time
-    
-    encoder = new AfskEncoder(data, sampleRate, baudrate);
-    
-    var numSamples = encoder.numSamplesRequired;
-    //console.log("numSamplesRequired: " + numSamples);
-    
-    var dataBuffer = audioCtx.createBuffer(1, numSamples, sampleRate);
-    var samples = dataBuffer.getChannelData(0);
-    
-    var numChunks = Math.ceil(numSamples / chunkSize);
-    for (var c = 0; c < numChunks; c++) {
-	var begin = c * chunkSize;
-	var end   = begin + chunkSize;
-	// subarray() will clamp end for the last chunk if needed.
-	var view = samples.subarray(begin, end);
-	encoder.modulate(view);
-    }
-    
-    var timeEnd = performance.now();
-    var timeElapsed = timeEnd - timeStart;
-    console.log("Rendered " + data.length + " data bytes in " +
-		timeElapsed.toFixed(2) + "ms");
-    return dataBuffer;
-}
-
-function playAudioBuffer(buffer) {
-    console.log("-- playAudioBuffer --");
-    // var audioCtx = new AudioContext();
-    var bufferNode = audioCtx.createBufferSource();
-    bufferNode.buffer = buffer;
-    bufferNode.connect(audioCtx.destination); // Connect to speakers
-    bufferNode.start(0); // play immediately
+function audioEnded() {
+    var playTimeEnd = performance.now();
+    var timeElapsed = playTimeEnd - playTimeStart;
+    console.log("got audio ended event after " + timeElapsed.toFixed(2) + "ms");
+    if( uiCallback )
+	uiCallback.audioEndCB();
 }
 
 function exportMonoWAV(buffer, length){
