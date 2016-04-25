@@ -2,7 +2,7 @@ var ui = {
     mode: null,
     saveState: false,
     sendState: false,
-    softModem: null,
+    modData: null,
     
     init: function() {
 	this.sendButton = document.getElementById("send");
@@ -16,7 +16,7 @@ var ui = {
 					 function(e) { self.onModeButton("send"); e.preventDefault(); });
 	this.ctrlButton.addEventListener("click",
 					 function(e) { self.onModeButton("ctrl"); e.preventDefault(); });
-	this.fileButton.addEventListener("file",
+	this.fileButton.addEventListener("click",
 					 function(e) { self.onModeButton("file"); e.preventDefault(); });
 	
 	this.saveButton.addEventListener("click",
@@ -24,9 +24,7 @@ var ui = {
 	
 	this.txLed    = document.getElementById("txLed");
 
-	// errr dataLength yah.
-	var dataLength = 256 + 7 + 3 + 4 + 1; // exact length of the longest packet..?
-	this.softModem = new modulator(dataLength);
+	this.modData = new modulator();
     },
     
     onModeButton: function(mode) {
@@ -47,7 +45,13 @@ var ui = {
 		stahhhhp();
 		}
 	*/
-	this.sendButton.setAttribute("selected", "");
+	if( mode == "send") {
+	    this.sendButton.setAttribute("selected", "");
+	} else if( mode == "ctrl") {
+	    this.ctrlButton.setAttribute("selected", "");
+	} else if( mode == "file") {
+	    this.fileButton.setAttribute("selected", "");
+	}
 	this.txLed.setAttribute("lit", "");
 
 	if(mode == "send") {
@@ -107,7 +111,7 @@ var ui = {
 	    buffer[i] = 0xFF;  // terminate with 0xFF to let last bit demodulate correctly
 	} else if( mode == "file" ) {
 	    var fileReq = new XMLHttpRequest();
-	    fileReq.open("GET", "http://bunniefoo.com/chibi/microtest1.bin", true);
+	    fileReq.open("GET", "microtest1.bin", true);
 	    fileReq.responseType = "arraybuffer";
 
 	    fileReq.onload = function(oEvent) {
@@ -115,23 +119,46 @@ var ui = {
 		if(arrayBuffer) {
 		    var byteArray = new Uint8Array(arrayBuffer);
 		    // do nothing for now!
+		    var fileLen = byteArray.length;
+		    var blocks = Math.ceil(fileLen / 256);
+
+		    var ctlPacket = self.makeCtlPacket(byteArray);
 		}
 	    }
+	    fileReq.send(); // this request is asynchronous
 	} else {
 	    throw "unknown onModeButton: " + mode;
 	}
 
-	this.softModem.modulate(buffer);
-	this.softModem.playBuffer(this);
-	this.softModem.drawWaveform();
-	
-	if( this.saveState ) {
-	    this.softModem.saveWAV();
+	if( mode != "file" ) {
+	    this.modData.modulate(buffer);
+	    this.modData.playBuffer(this);
+	    this.modData.drawWaveform();
+	    
+	    if( this.saveState ) {
+		this.modData.saveWAV();
+	    }
 	}
     },
 
+    makeCtlPacket: function(data) {
+	// parameters from microcontroller spec. Probably a better way
+	// to do this in javascript, but I don't know how (seems like "const" could be used, but not universal)
+	var bytePreamble = [00,00,00,00,0xaa,0x55,0x42];
+	var byteVersion = [0x81];
+	var pktLength = data.length;
+	var byteLength = [data & 0xFF, (data >> 8) & 0xFF, (data >> 16) & 0xFF, (data >> 24) & 0xFF];
+	var pktFullhash = murmurhash3_32_gc(data, 0x032dbabe);
+	var pktGuid = CryptoJS.MD5(data);
+
+	var packetlen = bytePreamble.length + byteVersion.length + 24 + 4 + 1;
+	var buffer = new Uint8Array(packetlen);
+	
+    },
     audioEndCB: function() {
 	this.sendButton.removeAttribute("selected", "");
+	this.ctrlButton.removeAttribute("selected", "");
+	this.fileButton.removeAttribute("selected", "");
 	this.txLed.removeAttribute("lit");
     },
     onSaveButton: function() {

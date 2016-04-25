@@ -7,7 +7,7 @@
 // 4) test integration with microcontroller demod code
 
 // creates a modulator capable of making audio clips up to dataLength long
-function modulator(dataLength) {
+function modulator() {
     this.audioCtx = new AudioContext();
     this.samplerate = this.audioCtx.sampleRate;
     
@@ -15,21 +15,18 @@ function modulator(dataLength) {
     
     this.encoder = new FskEncoder(this.samplerate);
 
-    var numBits = dataLength * 8;
-    this.numSamples = Math.ceil(numBits * this.encoder.samplesPerBit());
-	
-    this.outputAudioBuffer = this.audioCtx.createBuffer(1, this.numSamples, this.samplerate);
-    
 }
 modulator.prototype = {
     audioCtx: null,  // AudioContext object
-    numSamples: 0,
     samplerate: 48000,
     encoder: null,  // FskEncoder object
     outputAudioBuffer: null,  // AudioBuffer object
     uiCallback: null,  // UI object for callback
 
     modulate: function(data) {
+	var bufLen = Math.ceil(data.length * 8 * this.encoder.samplesPerBit());
+	this.outputAudioBuffer = this.audioCtx.createBuffer(1, bufLen, this.samplerate);
+	
 	var timeStart = performance.now();
 
 	var outputFloatArray = this.outputAudioBuffer.getChannelData(0);
