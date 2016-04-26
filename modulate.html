@@ -8,7 +8,7 @@
     <script src="murmurhash3_gc.js"></script>
     <script src="afsk-encoder.js"></script>
 
-    <script src="http://crypto-js.googlecode.com/svn/tags/3.0.2/build/rollups/md5.js"></script>
+    <script src="spark-md5.js"></script>
     
   </head><body><div id=header class=fixedSimple title="modem.js">
 
@@ -20,6 +20,14 @@
 	<a href="#" id=ctrl class=button>  Send Control </a>
 	<a href="#" id=file class=button>  Send File </a>
       </div>
+
+      Select a file to send:
+      <div id=modeContainer class=fixed>
+	<a href="#" id=short class=button>  Short File </a>
+	<a href="#" id=test1 class=button>  Test1 File </a>
+	<a href="#" id=test2 class=button>  Test2 File </a>
+      </div>
+
       <div id=modem class=fixedSimple>
 	
 	<span id=txLed class=led>▄▄▄</span>  

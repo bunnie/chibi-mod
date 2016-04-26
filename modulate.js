@@ -22,6 +22,8 @@ modulator.prototype = {
     encoder: null,  // FskEncoder object
     outputAudioBuffer: null,  // AudioBuffer object
     uiCallback: null,  // UI object for callback
+    loopCallback: null, // loop callback
+    loopIndex: null, // loop index on callback
 
     modulate: function(data) {
 	var bufLen = Math.ceil(data.length * 8 * this.encoder.samplesPerBit());
@@ -53,9 +55,42 @@ modulator.prototype = {
 	playTimeStart = performance.now();
 	bufferNode.start(0); // play immediately
     },
+    playLoop: function(callBack, index) {
+	if( callBack ) {
+	    loopCallback = callBack;
+	    loopIndex = index;
+	}
+	var bufferNode = this.audioCtx.createBufferSource();
+	bufferNode.buffer = this.outputAudioBuffer;
+	bufferNode.connect(this.audioCtx.destination); // Connect to speakers
+	bufferNode.addEventListener("ended", audioLoopEnded);
+	if( index == 1 )
+	    bufferNode.start(0); // this one goes immediately
+	else if( index == 2 )
+	    bufferNode.start(this.audioCtx.currentTime + 0.1); // redundant send of control packet
+	else if( index == 3 )
+	    bufferNode.start(this.audioCtx.currentTime + 0.5); // 0.5s for flash erase
+	else
+	    bufferNode.start(this.audioCtx.currentTime + 0.08); // slight pause between files to allow burning
+    },
     saveWAV: function() {
 	exportMonoWAV(this.outputAudioBuffer.getChannelData(0), this.outputAudioBuffer.length);
     },
+}
+
+function audioLoopEnded() {
+    if( loopCallback ) {
+	if( ((loopIndex - 2) * 256) < self.ui.byteArray.length ) {
+	    loopCallback.transcodeFile(loopIndex);
+	} else {
+	    if( window.ui.playCount < 2 ) {
+		window.ui.playCount++;
+		loopCallback.transcodeFile(0);
+	    } else {
+		loopCallback.audioEndCB();
+	    }
+	}
+    }
 }
 
 var playTimeStart;
