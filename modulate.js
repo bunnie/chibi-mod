@@ -63,7 +63,8 @@ modulator.prototype = {
 	var bufferNode = this.audioCtx.createBufferSource();
 	bufferNode.buffer = this.outputAudioBuffer;
 	bufferNode.connect(this.audioCtx.destination); // Connect to speakers
-	bufferNode.addEventListener("ended", audioLoopEnded);
+//	bufferNode.addEventListener("ended", audioLoopEnded); // this is not compatible with Android chrome
+	bufferNode.onended = audioLoopEnded;
 	if( index == 1 )
 	    bufferNode.start(0); // this one goes immediately
 	else if( index == 2 )
