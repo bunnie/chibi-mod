@@ -1,12 +1,8 @@
-// stopped at: getting audio contexts to play over and over again in the browser
-// once that's done, use the file fetch routine to decompose a file into multiple blocks
-// according to the updating protocol
-// 1) compute guid, fullhash, create control packet
-// 2) send successive data packets
-// 3) loop 3-4 times
-// 4) test integration with microcontroller demod code
+// one modulator per web page
+// the modulator object contains the audio context
+// we get on per window. The context can dole out buffers
+// for mulitple audio streams.
 
-// creates a modulator capable of making audio clips up to dataLength long
 function modulator() {
     this.audioCtx = new AudioContext();
     this.samplerate = this.audioCtx.sampleRate;
@@ -18,13 +14,17 @@ function modulator() {
 }
 modulator.prototype = {
     audioCtx: null,  // AudioContext object
-    samplerate: 48000,
+    samplerate: 48000, // updated by the initializer
     encoder: null,  // FskEncoder object
     outputAudioBuffer: null,  // AudioBuffer object
     uiCallback: null,  // UI object for callback
     loopCallback: null, // loop callback
     loopIndex: null, // loop index on callback
 
+    // modulate a single packet. The data to modulate should be Uint8 format
+    // This function allocates an audio buffer based on the length of the data and the sample rate
+    // It then calls the fsk modulator, and shoves the returned floating point array 
+    // into the audio context for later playback
     modulate: function(data) {
 	var bufLen = Math.ceil(data.length * 8 * this.encoder.samplesPerBit());
 	this.outputAudioBuffer = this.audioCtx.createBuffer(1, bufLen, this.samplerate);
@@ -40,10 +40,13 @@ modulator.prototype = {
 	console.log("Rendered " + data.length + " data bytes in " +
 		    timeElapsed.toFixed(2) + "ms");
     },
+    // draw the waveform to the canvas, assuming the proper UI element is provided
+    // for debug, of course
     drawWaveform: function() {
 	var b = this.outputAudioBuffer.getChannelData(0);
 	drawWaveformToCanvas(b, 0);
     },
+    // immediately play the modulated audio exactly once. Useful for debugging single packets
     playBuffer: function(callBack) {
 	if( callBack )
 	    uiCallback = callBack;
@@ -55,6 +58,11 @@ modulator.prototype = {
 	playTimeStart = performance.now();
 	bufferNode.start(0); // play immediately
     },
+    // Plays through an entire file. You need to set the callback so once
+    // a single audio packet is finished, the next can start. The index
+    // tells where to start playing. You could, in theory, start modulating
+    // part-way through an audio stream by setting index to a higher number on your
+    // first call.
     playLoop: function(callBack, index) {
 	if( callBack ) {
 	    loopCallback = callBack;
@@ -70,25 +78,32 @@ modulator.prototype = {
 	else if( index == 2 )
 	    bufferNode.start(this.audioCtx.currentTime + 0.1); // redundant send of control packet
 	else if( index == 3 )
-	    bufferNode.start(this.audioCtx.currentTime + 0.5); // 0.5s for flash erase
+	    bufferNode.start(this.audioCtx.currentTime + 0.5); // 0.5s for bulk flash erase to complete
 	else
-	    bufferNode.start(this.audioCtx.currentTime + 0.08); // slight pause between files to allow burning
+	    bufferNode.start(this.audioCtx.currentTime + 0.08); // slight pause between packets to allow burning
     },
+
     saveWAV: function() {
 	exportMonoWAV(this.outputAudioBuffer.getChannelData(0), this.outputAudioBuffer.length);
     },
 }
 
+// our callback to trigger the next packet
 function audioLoopEnded() {
     if( loopCallback ) {
 	if( ((loopIndex - 2) * 256) < self.ui.byteArray.length ) {
+	    // if we've got more data, transcode and loop
 	    loopCallback.transcodeFile(loopIndex);
 	} else {
-	    if( window.ui.playCount < 2 ) {
+	    // if we've reached the end of our data, check to see how
+	    // many times we've played the entire file back. We want to play
+	    // it back a couple of times because sometimes packets get
+	    // lost or corrupted. 
+	    if( window.ui.playCount < 2 ) { // set this higher for more loops!
 		window.ui.playCount++;
-		loopCallback.transcodeFile(0);
+		loopCallback.transcodeFile(0); // start it over!
 	    } else {
-		loopCallback.audioEndCB();
+		loopCallback.audioEndCB(); // clean up the UI when done
 	    }
 	}
     }
@@ -104,6 +119,7 @@ function audioEnded() {
 	uiCallback.audioEndCB();
 }
 
+// some code to export wave files for debug. Can lose this in production
 function exportMonoWAV(buffer, length){
     var saveData = (function () {
 	var a = document.createElement("a");

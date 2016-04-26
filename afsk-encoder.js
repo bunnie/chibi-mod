@@ -31,15 +31,20 @@ FskEncoder.prototype = {
     PHASE_BITS: 16,
     PHASE_BASE: (1 << 16), // hardcode PHASE_BITS here b/c javascript can't reference initializers in initializers
 
+    // compute samples per bit. Needed to allocate audio buffers before modulating
     samplesPerBit: function() {
 	return  this.sample_rate / this.baud_rate; // Not rounded! Floating point!
     },
+
+    // for debug.
     dumpBuffer: function(buf) {
 	var out = "";
 	for (var i = 0; i < buf.length; i++)
 	    out += "0x" + buf[i].toString(16) + ",";
 	return out;
     },
+
+    // does what you think it does -- input data should be uint8 array, outputdata is floats
     modulate: function(inputData, outputData) {
 	for(var i = 0; i < outputData.length; i++) {
 	    this.state.baud_frac += this.state.baud_incr;
