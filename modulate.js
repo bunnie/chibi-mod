@@ -4,7 +4,9 @@
 // for mulitple audio streams.
 
 function modulator() {
+    // this odd construct is for safari compatibility
     this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
     this.audioCtx = new webkitAudioContext();
     this.samplerate = this.audioCtx.sampleRate;
     
@@ -33,8 +35,7 @@ modulator.prototype = {
 	var timeStart = performance.now();
 
 	var outputFloatArray = this.outputAudioBuffer.getChannelData(0);
-	outputFloatArray = this.encoder.modulate(data, outputFloatArray);
-//	this.outputAudioBuffer.copyToChannel(outputFloatArray, 0);
+	this.encoder.modulate(data, outputFloatArray); // writes outputFloatArray in-place
 	
 	var timeEnd = performance.now();
 	var timeElapsed = timeEnd - timeStart;
