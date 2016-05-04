@@ -4,7 +4,8 @@
 // for mulitple audio streams.
 
 function modulator() {
-    this.audioCtx = new AudioContext();
+    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    this.audioCtx = new webkitAudioContext();
     this.samplerate = this.audioCtx.sampleRate;
     
     console.log("speakerSampleRate is " + this.samplerate);
@@ -33,7 +34,7 @@ modulator.prototype = {
 
 	var outputFloatArray = this.outputAudioBuffer.getChannelData(0);
 	outputFloatArray = this.encoder.modulate(data, outputFloatArray);
-	this.outputAudioBuffer.copyToChannel(outputFloatArray, 0);
+//	this.outputAudioBuffer.copyToChannel(outputFloatArray, 0);
 	
 	var timeEnd = performance.now();
 	var timeElapsed = timeEnd - timeStart;
