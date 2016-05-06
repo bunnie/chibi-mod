@@ -7,7 +7,6 @@ function modulator() {
     // this odd construct is for safari compatibility
     this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    this.audioCtx = new webkitAudioContext();
     this.samplerate = this.audioCtx.sampleRate;
     
     console.log("speakerSampleRate is " + this.samplerate);
