@@ -65,7 +65,7 @@ var ui = {
         if(mode == "send") {
             // assemble a single test data packet
             var preamble = [00,00,00,00,0xaa,0x55,0x42];
-            var sector = [0x01, 0x80, 0x04]; // version code + two bytes for sector offset
+            var sector = [0x01, 0x02, 0x80, 0x04]; // version code + two bytes for sector offset
             // note to self: version codes are now checked by Rx so let's not mess with that anymore
             // 256 byte payload, preamble, sector offset + 4 bytes hash + 1 byte stop
             var packetlen = 256 + preamble.length + sector.length + 4 + 1;
@@ -99,16 +99,17 @@ var ui = {
             // there are theoretical pathological patterns that can defeat the transition scheme
             // but given that we'll be uploading primarily ARM code our biggest enemy are
             // long runs of 0's and 1's
-            for( i = 8; i < (buffer.length - 5); i++ ) {
-                if( (i % 16) == 14 )
+            var ctr = 2;
+            for (i = preamble.length + 2; i < (buffer.length - 5); i++, ctr++) {
+                if ((ctr % 16) == 7)
                     buffer[i] ^= 0x55;
-                else if ( (i % 16) == 6 )
+                else if ((ctr % 16) == 15)
                     buffer[i] ^= 0xaa;
             }
         } else if( mode == "ctrl" ) {
             // assemble a single control packet for testing
             var preamble = [00,00,00,00,0xaa,0x55,0x42];
-            var sector = [0x81];   // version 1, control bit 7 is set
+            var sector = [0x01, 0x01, 0x00, 0x00];   // version 1, packet type 1(ctrl), two bytes of padding
             var packetlen = 24 + preamble.length + sector.length + 4 + 1;
             var buffer = new Uint8Array(packetlen);
             var i = 0;
@@ -249,7 +250,9 @@ var ui = {
         // parameters from microcontroller spec. Probably a better way
         // to do this in javascript, but I don't know how (seems like "const" could be used, but not universal)
         var bytePreamble = [00,00,00,00,0xaa,0x55,0x42];
-        var byteVersion = [0x81];
+        var byteVersion = [0x01];
+        var byteType = [0x01];
+        var bytePadding = [0x00, 0x00];
         var pktLength = data.length;
         var byteLength = [pktLength & 0xFF, (pktLength >> 8) & 0xFF,
                           (pktLength >> 16) & 0xFF, (pktLength >> 24) & 0xFF];
@@ -261,13 +264,16 @@ var ui = {
             pktGuid.push(parseInt(guidStr.substr(i,2),16));
         }
 
-        var packetlen = bytePreamble.length + byteVersion.length + byteLength.length + 4 + pktGuid.length + 4 + 1;
+        var packetlen = bytePreamble.length + bytePadding.length + byteVersion.length + byteType.length + byteLength.length + 4 + pktGuid.length + 4 + 1;
         var pkt = new Uint8Array(packetlen);
         var pktIndex = 0;
         for( i = 0; i < bytePreamble.length; i++ ) {
             pkt[pktIndex++] = bytePreamble[i];
         }
         pkt[pktIndex++] = byteVersion[0];
+        pkt[pktIndex++] = byteType[0];
+        pkt[pktIndex++] = bytePadding[0];
+        pkt[pktIndex++] = bytePadding[1];
         for( i = 0; i < byteLength.length; i++ ) {
             pkt[pktIndex++] = byteLength[i];
         }
@@ -279,7 +285,7 @@ var ui = {
             pkt[pktIndex++] = pktGuid[i];
         }
 
-        var hash = murmurhash3_32_gc(pkt.subarray(bytePreamble.length, 24 + bytePreamble.length + byteVersion.length), 0xdeadbeef); // deadbeef is just by convention
+        var hash = murmurhash3_32_gc(pkt.subarray(bytePreamble.length, 24 + bytePreamble.length + byteVersion.length + byteType.length + bytePadding.length), 0xdeadbeef); // deadbeef is just by convention
         pkt[pktIndex++] = hash & 0xFF;
         pkt[pktIndex++] = (hash >> 8) & 0xFF;
         pkt[pktIndex++] = (hash >> 16) & 0xFF;
@@ -305,7 +311,7 @@ var ui = {
         }
         // now assemble the packet
         var preamble = [00,00,00,00,0xaa,0x55,0x42];
-        var sector = [0x01, blocknum & 0xFF, (blocknum >> 8) & 0xFF];   // version 1
+        var sector = [0x01, 0x02, blocknum & 0xFF, (blocknum >> 8) & 0xFF];   // version 1
         // 256 byte payload, preamble, sector offset + 4 bytes hash + 1 byte stop
         var packetlen = 256 + preamble.length + sector.length + 4 + 1;
 
@@ -329,7 +335,7 @@ var ui = {
 
         // now stripe the buffer to ensure transitions for baud sync
         // don't stripe the premable or the hash
-        for( i = 8; i < (buffer.length - 5); i++ ) {
+        for( i = 9; i < (buffer.length - 5); i++ ) {
             if( (i % 16) == 14 )
                 buffer[i] ^= 0x55;
             else if ( (i % 16) == 6 )
